@@ -1,9 +1,4 @@
-from pathlib import Path
-
-app_js_path = Path("/mnt/data/app.js")
-app_js_path.parent.mkdir(parents=True, exist_ok=True)
-
-app_js_content = r"""// app.js — 自然發音互動 21 天（純前端、無 AI）
+// app.js — 自然發音互動 21 天（純前端、無 AI）
 // 直接覆蓋你專案的 js/app.js 即可
 // 特色：
 // - 21 天課程（聽音→選字母/組合→拼字→跟讀→小測）
@@ -609,8 +604,3 @@ if (resetProgressBtn) {
 
 console.log("[phonics] lessons loaded:", lessons.length);
 renderDayList();
-"""
-app_js_path.write_text(app_js_content, encoding="utf-8")
-
-app_js_path.as_posix()
-
