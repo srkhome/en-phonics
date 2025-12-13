@@ -1,12 +1,8 @@
-/* style.css — Responsive v2 (mobile/desktop) for EN Phonics 21 Days
-   目的：
-   1) Day 清單一定完整顯示（不被高度/overflow 吃掉）
-   2) 手機/桌機自適應：Day 卡片自動換行、不卡版
-   3) 課程內容區、圖卡區在窄螢幕會改為直向堆疊
-
-   用法：
-   - 直接覆蓋你的 /css/style.css
-   - 如果你原本檔名不是 style.css，請把內容貼到你正在引用的那支 CSS
+/* style.css — Responsive v2.2 (desktop overflow fix)
+   修正重點（桌機超出/橫向捲動/元素穿框）：
+   1) grid 欄位改用 minmax(0,1fr) 防止內容把欄位撐爆
+   2) 所有可疑容器加 min-width:0 + max-width:100%
+   3) Step/按鈕/卡片行為：可換行、不可溢出
 */
 
 :root{
@@ -27,13 +23,13 @@ body{
   background:var(--bg);
   color:var(--text);
   line-height:1.55;
+  overflow-x:hidden; /* ✅ 桌機也不允許橫向溢出 */
 }
-
-a{ color:inherit; }
 
 .container{
   width:min(1100px, 92vw);
   margin:24px auto 60px;
+  min-width:0;
 }
 
 h1{ font-size:clamp(26px, 4vw, 44px); margin:0 0 8px; }
@@ -45,13 +41,24 @@ h1{ font-size:clamp(26px, 4vw, 44px); margin:0 0 8px; }
   border-radius:var(--radius);
   box-shadow:var(--shadow);
   padding:22px;
+  overflow:hidden;      /* ✅ 任何內容都不能穿出 card */
+  max-width:100%;
+  min-width:0;
 }
+
+.hidden{ display:none !important; }
 
 .row{
   display:flex;
   gap:12px;
   align-items:center;
   flex-wrap:wrap;
+  min-width:0;
+  max-width:100%;
+}
+
+button, .pill, .step{
+  max-width:100%;
 }
 
 button{
@@ -62,10 +69,11 @@ button{
   border-radius:14px;
   cursor:pointer;
   font-size:16px;
+  white-space:nowrap;
 }
+button.ghost{ background:transparent; }
 button:hover{ filter:brightness(.98); }
 button:active{ transform:translateY(1px); }
-button.ghost{ background:transparent; }
 button:disabled{ opacity:.5; cursor:not-allowed; }
 
 .pill{
@@ -77,27 +85,20 @@ button:disabled{ opacity:.5; cursor:not-allowed; }
   border:1px solid var(--border);
   background:#fff;
   margin:6px 8px 0 0;
+  white-space:nowrap;
 }
 
-.hidden{ display:none !important; }
-
-/* =========================
-   ✅ 핵심：課程清單區（避免被吃掉）
-   ========================= */
-#courseList{
-  height:auto !important;
-  overflow:visible !important;
-}
+/* ✅ 清單不被吃掉 */
+#courseList{ height:auto !important; overflow:visible !important; }
 
 #dayList{
-  /* ✅ 自適應 grid：手機 1 欄起跳，桌機自動多欄 */
   display:grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap:16px;
   margin-top:14px;
+  min-width:0;
 }
 
-/* Day 按鈕卡片 */
 .dayBtn{
   text-align:left;
   width:100%;
@@ -106,104 +107,87 @@ button:disabled{ opacity:.5; cursor:not-allowed; }
   border:1px solid var(--border);
   background:linear-gradient(180deg,#fff 0%, #fbfbfd 100%);
   box-shadow:0 8px 18px rgba(0,0,0,.05);
+  min-width:0;
 }
 .dayBtn .big{ font-size:28px; font-weight:800; }
-.dayBtn:hover{ box-shadow:0 12px 22px rgba(0,0,0,.08); }
-.dayBtn:active{ transform:translateY(1px); }
 
-/* 清除進度按鈕區：右側不擠壓 */
-.topActions{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-  flex-wrap:wrap;
-}
-#resetProgressBtn{ margin-left:auto; }
-
-/* =========================
-   課程內容區：layout
-   ========================= */
-#lesson{ margin-top:18px; }
-
-.lessonHeader{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
-}
-
-#lessonTitle{
-  font-size:clamp(20px, 2.2vw, 28px);
-  margin:0;
-}
+/* ========= Lesson ========= */
+#lesson{ margin-top:18px; min-width:0; }
 
 .stepBar{
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
-  margin:14px 0 12px;
+  flex-wrap:wrap;          /* ✅ 桌機也允許換行，避免撐爆 */
+  align-items:center;
+  justify-content:flex-start;
+  min-width:0;
+  max-width:100%;
 }
+
 .step{
   padding:8px 12px;
   border-radius:999px;
   border:1px solid var(--border);
   background:#fff;
   font-size:14px;
-}
-.step.active{
-  border-color:#111827;
-  font-weight:700;
+  white-space:nowrap;
+  overflow:hidden;         /* ✅ 文字不外溢 */
+  text-overflow:ellipsis;
 }
 
-/* 主要操作區：左（課程）右（圖卡） */
+/* ✅ 핵심：grid 欄位用 minmax(0, …) 防止內容撐爆造成「超出格子」 */
 .lessonGrid{
   display:grid;
-  grid-template-columns: 1.25fr .75fr;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr);
   gap:16px;
   align-items:start;
+  min-width:0;
+  max-width:100%;
 }
 
-/* stage */
-#stage h3{ margin:0 0 6px; }
-#stage p{ margin:0 0 10px; color:var(--muted); }
+#stage{
+  min-width:0;
+  max-width:100%;
+}
+
+#stage p{
+  color:var(--muted);
+  overflow-wrap:anywhere;  /* ✅ 長句/英文也能折行 */
+}
+
 #status{ margin-top:8px; color:var(--muted); }
 
-/* =========================
-   圖卡區（翻牌）
-   ========================= */
+/* ========= Cards ========= */
 #cardsPanel{
   position:sticky;
   top:18px;
-}
-
-.cardsHeader{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-  margin-bottom:12px;
+  min-width:0;
+  max-width:100%;
 }
 
 #cardsGrid{
   display:grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap:12px;
+  min-width:0;
+  max-width:100%;
 }
 
 .flip-card{
   perspective: 900px;
   width:100%;
-  min-height:140px;
+  min-height:180px;
+  min-width:0;
 }
+
 .flip-inner{
   position:relative;
   width:100%;
   height:100%;
-  min-height:140px;
+  min-height:180px;
   transform-style:preserve-3d;
   transition: transform .5s ease;
+  min-width:0;
 }
 .flip-card.is-flipped .flip-inner{ transform: rotateY(180deg); }
 
@@ -218,33 +202,65 @@ button:disabled{ opacity:.5; cursor:not-allowed; }
   box-shadow:0 10px 18px rgba(0,0,0,.05);
   display:flex;
   flex-direction:column;
-  justify-content:space-between;
+  justify-content:flex-start;
+  overflow:hidden;          /* ✅ 內容不穿出 */
+  min-width:0;
 }
+
 .flip-back{ transform: rotateY(180deg); }
 
-.card-big{ font-size:34px; font-weight:900; }
-.card-sub{ color:var(--muted); font-size:14px; }
+.card-big{
+  font-size:34px;
+  font-weight:900;
+  line-height:1.05;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.card-sub{
+  color:var(--muted);
+  font-size:14px;
+  overflow-wrap:anywhere;
+}
+
 .card-actions{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
-  margin-top:10px;
+  margin-top:auto;
+  min-width:0;
 }
 
-/* =========================
-   ✅ 手機版調整
-   ========================= */
+.card-actions button{
+  font-size:14px;
+  padding:8px 10px;
+  border-radius:12px;
+  white-space:nowrap;
+  max-width:100%;
+}
+
+/* ========= Mobile ========= */
 @media (max-width: 860px){
   .container{ margin:16px auto 50px; }
   .card{ padding:16px; }
-  #dayList{ grid-template-columns: 1fr; } /* 手機：Day 卡片直排 */
-  .dayBtn .big{ font-size:26px; }
-  .lessonGrid{ grid-template-columns: 1fr; } /* 課程+圖卡改直向堆疊 */
+
+  #dayList{ grid-template-columns: 1fr; }
+  .lessonGrid{ grid-template-columns: 1fr; }
   #cardsPanel{ position:relative; top:auto; }
+
   #cardsGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .step{
+    font-size:13px;
+    padding:7px 10px;
+    white-space:normal;      /* ✅ 手機允許換行 */
+    line-height:1.2;
+  }
 }
 
 @media (max-width: 420px){
   button{ font-size:15px; padding:10px 12px; }
   #cardsGrid{ grid-template-columns: 1fr; }
+  .flip-card, .flip-inner{ min-height:200px; }
+  .card-big{ font-size:32px; }
 }
