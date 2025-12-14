@@ -1,16 +1,3 @@
-// app.js — 自然發音互動 21 天（純前端、無 AI）
-// 直接覆蓋你專案的 js/app.js 即可
-// 特色：
-// - 21 天課程（聽音→選字母/組合→拼字→跟讀→小測）
-// - 圖卡翻牌（字母卡/單字卡）
-// - 依 Day 自動只顯示當天相關圖卡（B）
-// - 進度存在 localStorage
-//
-// 修正重點：Day 21 結構正常化 + DOM 防呆，避免 JS 因為小錯就整支停止
-
-// =======================
-// 1) 課程資料（Day 1~21）
-// =======================
 const lessons = [
   {
     id: 1, title: "Day 1｜短母音 /æ/（apple 的 a）",
@@ -174,37 +161,29 @@ const lessons = [
   },
   {
     id: 21, title: "Day 21｜複習挑戰（混合）",
-    sound: "review sounds",
-    mcq: { prompt: "聽音選字母或字母組合", options: ["a","sh","oa"], answer: "sh" },
-    spell: { phonemes: ["/sh/","/ɪ/","/p/"], answer: "ship", letters: ["s","h","i","p","a","o"] },
+    sound: "review mix",
+    mcq: { prompt: "聽音選字母/組合：我會念一個，你選對", options: ["a","sh","oa"], answer: "mix" },
+    spell: { phonemes: ["(mix)"], answer: "ship", letters: ["s","h","i","p","a","o"] },
     speakWord: "ship",
     quiz: { sentence: "Choose the correct word:", options: ["boat","bad"], answer: "boat" }
   }
 ];
 
-// =======================
-// 2) DOM / 防呆
-// =======================
 const qs = (s) => document.querySelector(s);
-function must(el, name) { if (!el) throw new Error(`Missing DOM element: ${name}`); return el; }
-
-const dayList = must(qs("#dayList"), "#dayList");
-const lessonSec = must(qs("#lesson"), "#lesson");
-const stage = must(qs("#stage"), "#stage");
-const statusEl = must(qs("#status"), "#status");
-const nextStepBtn = must(qs("#nextStepBtn"), "#nextStepBtn");
-const backBtn = must(qs("#backBtn"), "#backBtn");
-const titleEl = must(qs("#lessonTitle"), "#lessonTitle");
+const dayList = qs("#dayList");
+const lessonSec = qs("#lesson");
+const stage = qs("#stage");
+const statusEl = qs("#status");
+const nextStepBtn = qs("#nextStepBtn");
+const backBtn = qs("#backBtn");
+const titleEl = qs("#lessonTitle");
 const resetProgressBtn = qs("#resetProgressBtn");
-const courseList = qs("#courseList");
 const stepBtns = [...document.querySelectorAll(".step")];
 
 let currentLesson = null;
 let step = 0;
 
-// =======================
-// 3) SpeechSynthesis
-// =======================
+// ---------- 語音播放 ----------
 function speak(text) {
   if (!("speechSynthesis" in window)) {
     alert("此裝置不支援語音播放（SpeechSynthesis）。");
@@ -216,32 +195,31 @@ function speak(text) {
   window.speechSynthesis.speak(u);
 }
 
-// =======================
-// 4) localStorage 進度
-// =======================
+// ---------- 進度儲存 ----------
 function loadProgress() {
   try { return JSON.parse(localStorage.getItem("phonics_progress") || "{}"); }
   catch { return {}; }
 }
-function saveProgress(p) { localStorage.setItem("phonics_progress", JSON.stringify(p)); }
+function saveProgress(p) {
+  localStorage.setItem("phonics_progress", JSON.stringify(p));
+}
 function markDone(lessonId) {
   const p = loadProgress();
   p[lessonId] = { done: true, ts: Date.now() };
   saveProgress(p);
 }
-function clearProgress() { localStorage.removeItem("phonics_progress"); }
+function clearProgress() {
+  localStorage.removeItem("phonics_progress");
+}
 
-// =======================
-// 5) 渲染課程列表
-// =======================
+// ---------- 課程清單 ----------
 function renderDayList() {
   const p = loadProgress();
   dayList.innerHTML = lessons.map(l => {
     const done = p?.[l.id]?.done ? "✅ 已完成" : "⬜ 未完成";
-    const desc = (l.title.split("｜")[1] || "").trim();
     return `<button class="dayBtn" data-id="${l.id}">
       <div class="big">Day ${l.id}</div>
-      <div style="opacity:.85;margin-top:6px;">${desc}</div>
+      <div style="opacity:.85;margin-top:6px;">${l.title.split("｜")[1] || ""}</div>
       <div style="opacity:.8;margin-top:6px;">${done}</div>
     </button>`;
   }).join("");
@@ -251,21 +229,14 @@ function renderDayList() {
   });
 }
 
-// =======================
-// 6) 進入 / 返回課程
-// =======================
 function openLesson(id) {
   currentLesson = lessons.find(l => l.id === id);
   step = 0;
   titleEl.textContent = currentLesson.title;
-
-  if (courseList) courseList.classList.add("hidden");
-  else {
-    const firstCard = document.querySelector("main .card");
-    if (firstCard) firstCard.classList.add("hidden");
-  }
+  qs("#courseList").classList.add("hidden");
   lessonSec.classList.remove("hidden");
 
+  // 圖卡：依 Day 自動過濾
   setCardsMode("letters");
   openCardsPanel();
 
@@ -274,19 +245,12 @@ function openLesson(id) {
 
 function goBack() {
   closeCardsPanel();
-
   lessonSec.classList.add("hidden");
-  if (courseList) courseList.classList.remove("hidden");
-  else {
-    const firstCard = document.querySelector("main .card");
-    if (firstCard) firstCard.classList.remove("hidden");
-  }
+  qs("#courseList").classList.remove("hidden");
   renderDayList();
 }
 
-// =======================
-// 7) Steps
-// =======================
+// ---------- Step ----------
 function setStep(n) {
   step = n;
   stepBtns.forEach(b => b.classList.toggle("active", Number(b.dataset.step) === step));
@@ -392,6 +356,127 @@ function renderRepeat() {
 }
 
 function renderQuiz() {
+  // ✅ Day 21：隨機 10 題總複習（Day1-20 單字池）
+  if (currentLesson?.id === 21) {
+    const pool = wordCards
+      .filter(w => (w.tags || []).some(t => /^day([1-9]|1\d|20)$/.test(t))) // day1~day20
+      .map(w => w.front);
+
+    const uniq = [...new Set(pool)];
+    const pickN = (arr, n) => shuffle(arr).slice(0, Math.min(n, arr.length));
+
+    const answers = pickN(uniq, 10);
+
+    const questions = answers.map(ans => {
+      const distractors = pickN(uniq.filter(x => x !== ans), 3);
+      const options = shuffle([ans, ...distractors]);
+      return { ans, options };
+    });
+
+    let idx = 0;
+    let score = 0;
+    const userAns = new Array(questions.length).fill(null);
+
+    const renderQ = () => {
+      const q = questions[idx];
+      stage.innerHTML = `
+        <h3>⑤ Day 21｜總複習小測（${idx + 1} / ${questions.length}）</h3>
+        <p>按🔊聽單字，選正確拼字。</p>
+
+        <div class="row" style="margin:10px 0;">
+          <button id="playWord">🔊 聽</button>
+          <button class="ghost" id="replayWord">再聽一次</button>
+          <div style="margin-left:auto;opacity:.8;">目前分數：<b>${score}</b></div>
+        </div>
+
+        <div style="margin-top:8px;">
+          ${q.options.map(o => `
+            <button class="pill qopt" data-v="${o}" style="margin:8px 10px 0 0;">
+              ${o}
+            </button>
+          `).join("")}
+        </div>
+
+        <div id="fb" style="margin-top:12px; min-height:24px;"></div>
+
+        <div class="row" style="margin-top:14px;">
+          <button class="ghost" id="prev" ${idx === 0 ? "disabled" : ""}>上一題</button>
+          <button id="next">${idx === questions.length - 1 ? "看成績" : "下一題"}</button>
+        </div>
+      `;
+
+      const say = () => speak(q.ans);
+      qs("#playWord").onclick = say;
+      qs("#replayWord").onclick = say;
+
+      document.querySelectorAll(".qopt").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const v = btn.dataset.v;
+
+          // 允許改答案：先回滾再重算
+          if (userAns[idx] !== null && userAns[idx] === q.ans) score -= 10;
+
+          userAns[idx] = v;
+
+          const ok = v === q.ans;
+          if (ok) score += 10;
+
+          qs("#fb").textContent = ok ? "✅ 正確！" : `❌ 錯了～正確是：${q.ans}`;
+          statusEl.textContent = ok ? "本題答對" : "本題答錯";
+        });
+      });
+
+      qs("#prev").onclick = () => { idx = Math.max(0, idx - 1); renderQ(); };
+      qs("#next").onclick = () => {
+        if (idx === questions.length - 1) {
+          renderResult();
+        } else {
+          idx += 1;
+          renderQ();
+        }
+      };
+    };
+
+    const renderResult = () => {
+      const rows = questions.map((q, i) => {
+        const ua = userAns[i];
+        const ok = ua === q.ans;
+        return `
+          <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
+            <div><b>第 ${i + 1} 題</b>：正確 <b>${q.ans}</b></div>
+            <div style="opacity:.85;">你的答案：${ua ?? "（未作答）"} ${ok ? "✅" : "❌"}</div>
+          </div>
+        `;
+      }).join("");
+
+      stage.innerHTML = `
+        <h3>⑤ Day 21｜總複習成績</h3>
+        <p>總分：<b>${score}</b>（每題 10 分，共 ${questions.length} 題）</p>
+
+        <div class="row" style="margin:10px 0;">
+          <button id="retry">再測一次（重新抽題）</button>
+          <button class="ghost" id="finish">完成 Day 21 ✅</button>
+        </div>
+
+        <div style="margin-top:12px;">
+          <h4 style="margin:0 0 8px;">答題明細</h4>
+          ${rows}
+        </div>
+      `;
+
+      qs("#retry").onclick = () => renderQuiz(); // 重新抽題
+      qs("#finish").onclick = () => {
+        markDone(currentLesson.id);
+        alert("Day 21 完成 ✅ 進度已儲存到本機。");
+        goBack();
+      };
+    };
+
+    renderQ();
+    return;
+  }
+
+  // ✅ 其他天數：維持原本的「單題小測」
   const q = currentLesson.quiz;
   stage.innerHTML = `
     <h3>⑤ 小測</h3>
@@ -418,61 +503,103 @@ function renderQuiz() {
   };
 }
 
-// =======================
-// 8) 圖卡（B：依 Day 過濾）
-// =======================
+
+// ---------- 綁定 ----------
+nextStepBtn.onclick = () => setStep(Math.min(step + 1, 4));
+backBtn.onclick = goBack;
+stepBtns.forEach(b => b.onclick = () => setStep(Number(b.dataset.step)));
+resetProgressBtn.onclick = () => {
+  if (confirm("確定要清除本機進度嗎？（只影響你的裝置）")) {
+    clearProgress();
+    renderDayList();
+  }
+};
+
+renderDayList();
+
+
+// ======================================================
+// 圖卡翻牌模式：依 Day 自動只顯示相關卡片
+// ======================================================
 const letterCards = [
-  { front: "a",  back: "嘴巴張大：apple 的 a\n/æ/", speak: "a",  tags: ["day1","vowel"] },
-  { front: "i",  back: "短短的 i：igloo\n/ɪ/",  speak: "i",  tags: ["day2","vowel"] },
-  { front: "e",  back: "短短的 e：egg\n/e/",   speak: "e",  tags: ["day3","vowel"] },
-  { front: "o",  back: "hot 的 o（美式 /ɑ/）",  speak: "o",  tags: ["day4","vowel"] },
-  { front: "u",  back: "up 的 u\n/ʌ/",          speak: "u",  tags: ["day5","vowel"] },
-  { front: "sh", back: "sh = /ʃ/\nship",        speak: "sh", tags: ["day6","digraph"] },
-  { front: "ch", back: "ch = /tʃ/\nchair",      speak: "ch", tags: ["day7","digraph"] },
-  { front: "th", back: "th = /θ/ 或 /ð/\nthink / this", speak: "th", tags: ["day8","digraph"] },
-  { front: "ph", back: "ph = /f/\nphone",       speak: "ph", tags: ["day9","digraph"] },
-  { front: "ck", back: "ck = /k/\nduck",        speak: "ck", tags: ["day10","digraph"] },
-  { front: "ee", back: "ee = /iː/\nsee",        speak: "ee", tags: ["day11","long"] },
-  { front: "ea", back: "ea 常見 = /iː/\neat",    speak: "ea", tags: ["day12","long"] },
-  { front: "ai", back: "ai = /eɪ/\nrain",       speak: "ai", tags: ["day13","long"] },
-  { front: "ay", back: "ay = /eɪ/\nday",        speak: "ay", tags: ["day14","long"] },
-  { front: "oa", back: "oa = /oʊ/\nboat",       speak: "oa", tags: ["day15","long"] },
-  { front: "ow", back: "ow = /aʊ/\ncow",        speak: "ow", tags: ["day16","vowelteam"] },
-  { front: "oo", back: "oo 兩種：book / moon",  speak: "oo", tags: ["day17","vowelteam"] },
-  { front: "ar", back: "ar = /ɑr/\ncar",        speak: "ar", tags: ["day18","rcontrolled"] },
-  { front: "or", back: "or = /ɔr/\nfork",       speak: "or", tags: ["day19","rcontrolled"] },
-  { front: "er", back: "er = /ɝ/\nher",         speak: "er", tags: ["day20","rcontrolled"] },
-  { front: "mix",back: "複習混合\n隨機練習",      speak: "review", tags: ["day21","review"] },
+  { front: "a", back: "嘴巴張大：apple 的 a
+/æ/", speak: "a", tags: ["day1","vowel"] },
+  { front: "i", back: "短短的 i：igloo
+/ɪ/", speak: "i", tags: ["day2","vowel"] },
+  { front: "e", back: "短短的 e：egg
+/e/", speak: "e", tags: ["day3","vowel"] },
+  { front: "o", back: "hot 的 o（美式 /ɑ/）
+/ɑ/", speak: "o", tags: ["day4","vowel"] },
+  { front: "u", back: "up 的 u
+/ʌ/", speak: "u", tags: ["day5","vowel"] },
+  { front: "sh", back: "sh = /ʃ/
+ship", speak: "sh", tags: ["day6","digraph"] },
+  { front: "ch", back: "ch = /tʃ/
+chair", speak: "ch", tags: ["day7","digraph"] },
+  { front: "th", back: "th = /θ/ 或 /ð/
+think / this", speak: "th", tags: ["day8","digraph"] },
+  { front: "ph", back: "ph = /f/
+phone", speak: "ph", tags: ["day9","digraph"] },
+  { front: "ck", back: "ck = /k/
+duck", speak: "ck", tags: ["day10","digraph"] },
+  { front: "ee", back: "ee = 長母音 /iː/
+see", speak: "ee", tags: ["day11","long"] },
+  { front: "ea", back: "ea 常見 = /iː/
+eat", speak: "ea", tags: ["day12","long"] },
+  { front: "ai", back: "ai = /eɪ/
+rain", speak: "ai", tags: ["day13","long"] },
+  { front: "ay", back: "ay = /eɪ/
+day", speak: "ay", tags: ["day14","long"] },
+  { front: "oa", back: "oa = /oʊ/
+boat", speak: "oa", tags: ["day15","long"] },
+  { front: "ow", back: "ow = /aʊ/
+cow", speak: "ow", tags: ["day16","vowelteam"] },
+  { front: "oo", back: "oo 兩種：book / moon", speak: "oo", tags: ["day17","vowelteam"] },
+  { front: "ar", back: "ar = /ɑr/
+car", speak: "ar", tags: ["day18","rcontrolled"] },
+  { front: "or", back: "or = /ɔr/
+fork", speak: "or", tags: ["day19","rcontrolled"] },
+  { front: "er", back: "er = /ɝ/
+her", speak: "er", tags: ["day20","rcontrolled"] },
+  { front: "mix", back: "複習混合
+隨機練習", speak: "mix", tags: ["day21","review"] }
 ];
 
 const wordCards = [
-  { front: "cat",  back: "c + a + t\n短 a /æ/", speak: "cat",  tags: ["day1"] },
-  { front: "bad",  back: "b + a + d\n短 a /æ/（張大）", speak: "bad", tags: ["day1quiz","day3quiz","day21"] },
-  { front: "bed",  back: "b + e + d\n短 e /e/", speak: "bed",  tags: ["day3","day1quiz","day21"] },
-  { front: "sit",  back: "s + i + t\n短 i /ɪ/", speak: "sit",  tags: ["day2","day21"] },
-  { front: "dog",  back: "d + o + g\n短 o /ɑ/", speak: "dog",  tags: ["day4","day21"] },
-  { front: "sun",  back: "s + u + n\n短 u /ʌ/", speak: "sun",  tags: ["day5","day21"] },
-  { front: "ship", back: "sh + ip",             speak: "ship", tags: ["day6","day21"] },
-  { front: "chip", back: "ch + ip",             speak: "chip", tags: ["day7","day21"] },
-  { front: "thin", back: "th + in",             speak: "thin", tags: ["day8","day21"] },
-  { front: "phone",back: "ph + one",            speak: "phone",tags: ["day9"] },
-  { front: "duck", back: "du + ck",             speak: "duck", tags: ["day10"] },
-  { front: "see",  back: "s + ee",              speak: "see",  tags: ["day11"] },
-  { front: "eat",  back: "ea + t",              speak: "eat",  tags: ["day12"] },
-  { front: "rain", back: "r + ai + n",          speak: "rain", tags: ["day13"] },
-  { front: "day",  back: "d + ay",              speak: "day",  tags: ["day14"] },
-  { front: "boat", back: "b + oa + t",          speak: "boat", tags: ["day15","day21"] },
-  { front: "cow",  back: "c + ow",              speak: "cow",  tags: ["day16"] },
-  { front: "book", back: "b + oo + k",          speak: "book", tags: ["day17"] },
-  { front: "car",  back: "c + ar",              speak: "car",  tags: ["day18"] },
-  { front: "fork", back: "f + or + k",          speak: "fork", tags: ["day19"] },
-  { front: "her",  back: "h + er",              speak: "her",  tags: ["day20"] },
+  { front: "cat", back: "c+a+t
+短 a /æ/", speak: "cat", tags: ["day1"] },
+  { front: "bad", back: "b+a+d
+短 a /æ/（張大）", speak: "bad", tags: ["day1quiz","day3quiz","day21"] },
+  { front: "bed", back: "b+e+d
+短 e /e/", speak: "bed", tags: ["day3","day1quiz","day21"] },
+  { front: "sit", back: "s+i+t
+短 i /ɪ/", speak: "sit", tags: ["day2","day21"] },
+  { front: "dog", back: "d+o+g
+短 o /ɑ/", speak: "dog", tags: ["day4","day21"] },
+  { front: "sun", back: "s+u+n
+短 u /ʌ/", speak: "sun", tags: ["day5","day21"] },
+  { front: "ship", back: "sh + ip", speak: "ship", tags: ["day6","day21"] },
+  { front: "chip", back: "ch + ip", speak: "chip", tags: ["day7","day21"] },
+  { front: "thin", back: "th + in", speak: "thin", tags: ["day8","day21"] },
+  { front: "phone", back: "ph + one", speak: "phone", tags: ["day9"] },
+  { front: "duck", back: "du + ck", speak: "duck", tags: ["day10"] },
+  { front: "see", back: "s + ee", speak: "see", tags: ["day11"] },
+  { front: "eat", back: "ea + t", speak: "eat", tags: ["day12"] },
+  { front: "rain", back: "r + ai + n", speak: "rain", tags: ["day13"] },
+  { front: "day", back: "d + ay", speak: "day", tags: ["day14"] },
+  { front: "boat", back: "b + oa + t", speak: "boat", tags: ["day15","day21"] },
+  { front: "cow", back: "c + ow", speak: "cow", tags: ["day16"] },
+  { front: "book", back: "b + oo + k", speak: "book", tags: ["day17"] },
+  { front: "car", back: "c + ar", speak: "car", tags: ["day18"] },
+  { front: "fork", back: "f + or + k", speak: "fork", tags: ["day19"] },
+  { front: "her", back: "h + er", speak: "her", tags: ["day20"] }
 ];
 
-let currentCardsMode = "letters";
+
+let currentCardsMode = "letters"; // "letters" | "words"
 let currentCards = [...letterCards];
 
-function shuffle(arr) {
+function shuffle(arr){
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -480,55 +607,74 @@ function shuffle(arr) {
   }
   return a;
 }
-function getLessonTag(lessonId) { return `day${lessonId}`; }
+
+function getLessonTag(lessonId){
+  return `day${lessonId}`;
+}
 
 function filterCardsByLesson(cards, lessonId, mode) {
+  // ⭐ Day 21（總複習）單字池：收錄 Day 1–20 所有單字（不含重複）
+  if (lessonId === 21 && mode === "words") {
+    const reviewTags = Array.from({ length: 20 }, (_, i) => `day${i + 1}`);
+    const all = cards.filter(c => (c.tags || []).some(t => reviewTags.includes(t)));
+
+    const seen = new Set();
+    return all.filter(c => {
+      if (seen.has(c.front)) return false;
+      seen.add(c.front);
+      return true;
+    });
+  }
+
+  // 其他天數：只顯示當天相關卡
   const dayTag = getLessonTag(lessonId);
   let filtered = cards.filter(c => (c.tags || []).includes(dayTag));
 
+  // 若某天卡太少，帶入 quiz 對比卡（例如 day1quiz）
   if (filtered.length < 3 && mode === "words") {
     const quizTag = `${dayTag}quiz`;
     filtered = [...filtered, ...cards.filter(c => (c.tags || []).includes(quizTag))];
   }
-  if (dayTag === "day21" && mode === "words") {
-    const extra = cards.filter(c =>
-      ["day1","day2","day3","day4","day5","day6","day7","day8","day15"].some(t => (c.tags || []).includes(t))
-    );
-    filtered = [...filtered, ...extra];
-  }
 
+  // 去重
   const seen = new Set();
   return filtered.filter(c => {
-    const k = c.front;
-    if (seen.has(k)) return false;
-    seen.add(k);
+    if (seen.has(c.front)) return false;
+    seen.add(c.front);
     return true;
   });
 }
 
-// panel elements
-const cardsPanel = qs("#cardsPanel");
-const cardsGrid = qs("#cardsGrid");
 
-function openCardsPanel() {
-  if (!cardsPanel || !cardsGrid) return;
-  cardsPanel.classList.remove("hidden");
+function openCardsPanel(){
+  const panel = qs("#cardsPanel");
+  panel.classList.remove("hidden");
   renderCards();
 }
-function closeCardsPanel() {
-  if (!cardsPanel) return;
-  cardsPanel.classList.add("hidden");
+
+function closeCardsPanel(){
+  qs("#cardsPanel").classList.add("hidden");
 }
-function setCardsMode(mode) {
+
+function setCardsMode(mode){
   currentCardsMode = mode;
   const base = mode === "letters" ? [...letterCards] : [...wordCards];
-  currentCards = currentLesson?.id ? filterCardsByLesson(base, currentLesson.id, mode) : base;
+
+  if (currentLesson?.id) {
+    currentCards = filterCardsByLesson(base, currentLesson.id, mode);
+  } else {
+    currentCards = base;
+  }
+
   if (currentCards.length === 0) currentCards = base;
   renderCards();
 }
-function renderCards() {
-  if (!cardsGrid) return;
-  cardsGrid.innerHTML = "";
+
+function renderCards(){
+  const grid = qs("#cardsGrid");
+  if (!grid) return;
+
+  grid.innerHTML = "";
   const cards = currentCards;
 
   cards.forEach((c, idx) => {
@@ -545,62 +691,45 @@ function renderCards() {
           </div>
         </div>
         <div class="flip-face flip-back">
-          <div class="card-sub">${(c.back || "").replaceAll("\n","<br>")}</div>
+          <div class="card-sub">${c.back}</div>
           <div class="card-actions">
             <button class="ghost flipBtn" data-i="${idx}">翻回</button>
           </div>
         </div>
       </div>
     `;
+
     card.addEventListener("click", (e) => {
       if (e.target.closest("button")) return;
       card.classList.toggle("is-flipped");
     });
-    cardsGrid.appendChild(card);
+
+    grid.appendChild(card);
   });
 
-  cardsGrid.querySelectorAll(".flipBtn").forEach(btn => {
+  grid.querySelectorAll(".flipBtn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const i = Number(btn.dataset.i);
-      const flipCard = cardsGrid.children[i];
-      if (flipCard) flipCard.classList.toggle("is-flipped");
+      const flipCard = grid.children[i];
+      flipCard.classList.toggle("is-flipped");
     });
   });
 
-  cardsGrid.querySelectorAll(".speakBtn").forEach(btn => {
+  grid.querySelectorAll(".speakBtn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const i = Number(btn.dataset.i);
       const item = cards[i];
-      if (item) speak(item.speak);
+      speak(item.speak);
     });
   });
 }
 
-// cards panel buttons (event delegation)
+// 圖卡面板按鈕（事件委派）
 document.addEventListener("click", (e) => {
   if (e.target?.id === "showLetterCardsBtn") setCardsMode("letters");
   if (e.target?.id === "showWordCardsBtn") setCardsMode("words");
   if (e.target?.id === "shuffleCardsBtn") { currentCards = shuffle(currentCards); renderCards(); }
   if (e.target?.id === "closeCardsBtn") closeCardsPanel();
 });
-
-// =======================
-// 9) 初始化
-// =======================
-nextStepBtn.onclick = () => setStep(Math.min(step + 1, 4));
-backBtn.onclick = goBack;
-stepBtns.forEach(b => b.onclick = () => setStep(Number(b.dataset.step)));
-
-if (resetProgressBtn) {
-  resetProgressBtn.onclick = () => {
-    if (confirm("確定要清除本機進度嗎？（只影響你的裝置）")) {
-      clearProgress();
-      renderDayList();
-    }
-  };
-}
-
-console.log("[phonics] lessons loaded:", lessons.length);
-renderDayList();
