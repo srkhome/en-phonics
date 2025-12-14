@@ -2,73 +2,64 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>自然發音互動 21 天｜純前端</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>自然發音 21 天｜互動課程（純前端）</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <header class="wrap">
-    <h1>自然發音互動 21 天（無 AI）</h1>
-    <p class="sub">聽音 → 選字母/字母組合 → 拼字 → 跟讀 → 小測驗（任何人可使用）</p>
-  </header>
+  <div class="container">
+    <header style="margin-bottom:14px;">
+      <h1>自然發音 21 天</h1>
+      <p class="subtitle">純前端互動版（無 AI）：聽音 → 選字母/組合 → 拼字 → 跟讀 → 測驗</p>
+    </header>
 
-  <main class="wrap">
     <section id="courseList" class="card">
-      <div class="row">
-        <h2>選擇課程</h2>
-        <button class="ghost" id="resetProgressBtn" title="清除本機進度（只影響你的裝置）">清除進度</button>
+      <div class="topActions">
+        <h2 style="margin:0;">📘 選擇課程</h2>
+        <button id="resetProgressBtn" class="ghost" type="button">清除進度</button>
       </div>
-      <div id="dayList" class="grid"></div>
+      <div id="dayList" aria-label="Day list"></div>
     </section>
 
-    <section id="lesson" class="card hidden">
-      <div class="row">
-        <h2 id="lessonTitle">Day</h2>
-        <button class="ghost" id="backBtn">回課程列表</button>
-      </div>
-
-      <!-- 圖卡翻牌面板：依 Day 自動顯示相關卡片 -->
-      <div id="cardsPanel" class="card hidden">
+    <section id="lesson" class="card hidden" aria-label="Lesson">
+      <div class="lessonHeader">
+        <div>
+          <h2 id="lessonTitle" style="margin:0;">Day</h2>
+          <div id="status" style="margin-top:6px;"></div>
+        </div>
         <div class="row">
-          <h3 style="margin:0;">圖卡翻牌練習</h3>
-          <div class="row" style="gap:8px;">
-            <button class="ghost" id="shuffleCardsBtn">洗牌</button>
-            <button class="ghost" id="closeCardsBtn">收起</button>
+          <button id="backBtn" class="ghost" type="button">← 返回課程選擇</button>
+          <button id="nextStepBtn" type="button">下一關 →</button>
+        </div>
+      </div>
+
+      <div class="stepBar" style="margin-top:14px;">
+        <button class="step active" type="button" data-step="0">① 聽音</button>
+        <button class="step" type="button" data-step="1">② 選字母</button>
+        <button class="step" type="button" data-step="2">③ 拼字</button>
+        <button class="step" type="button" data-step="3">④ 跟讀</button>
+        <button class="step" type="button" data-step="4">⑤ 小測</button>
+      </div>
+
+      <div class="lessonGrid">
+        <div id="stage"></div>
+
+        <aside id="cardsPanel" class="hidden">
+          <div class="cardsHeader">
+            <button id="showLetterCardsBtn" class="ghost" type="button">字母卡</button>
+            <button id="showWordCardsBtn" class="ghost" type="button">單字卡</button>
+            <button id="shuffleCardsBtn" class="ghost" type="button">洗牌</button>
+            <button id="closeCardsBtn" class="ghost" type="button">關閉</button>
           </div>
-        </div>
-
-        <p style="margin:10px 0; opacity:.85;">
-          點卡片翻面。正面是字母/單字，背面是提示。可按「洗牌」重新排列。
-        </p>
-
-        <div class="row" style="gap:10px; flex-wrap:wrap;">
-          <button id="showLetterCardsBtn">字母卡</button>
-          <button id="showWordCardsBtn">單字卡</button>
-        </div>
-
-        <div id="cardsGrid" class="cards-grid"></div>
-      </div>
-
-      <div class="steps">
-        <button class="step active" data-step="0">① 聽音</button>
-        <button class="step" data-step="1">② 選字母</button>
-        <button class="step" data-step="2">③ 拼字</button>
-        <button class="step" data-step="3">④ 跟讀</button>
-        <button class="step" data-step="4">⑤ 小測</button>
-      </div>
-
-      <div id="stage" class="stage"></div>
-
-      <div class="row end">
-        <div id="status" class="status"></div>
-        <button id="nextStepBtn">下一步</button>
+          <div id="cardsGrid" aria-label="Cards grid"></div>
+        </aside>
       </div>
     </section>
-  </main>
 
-  <footer class="wrap foot">
-    <small>提示：語音播放用瀏覽器內建 SpeechSynthesis，不需音檔。進度存在你自己的裝置（localStorage）。</small>
-  </footer>
+    <footer style="margin-top:18px; color:#6b7280; font-size:14px;">
+      <div>提示：語音播放使用瀏覽器內建 SpeechSynthesis（不同裝置音色略有差異）。</div>
+    </footer>
+  </div>
 
   <script src="js/app.js"></script>
 </body>
